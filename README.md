@@ -1,30 +1,30 @@
-# Captura de Tráfego: O perigo do HTTP 🦈
+# Análise de Protocolo: Captura de Credenciais em Tráfego HTTP (Cleartext) 🦈
 
-Sempre ouvi dizer que o HTTP não é seguro, mas decidi realizar este laboratório para ver, na prática, como é fácil interceptar uma senha em uma rede sem criptografia.
+Validação prática da insegurança do protocolo HTTP através da interceptação e análise de pacotes em rede local, evidenciando a exposição de dados sensíveis em tráfego sem cifragem.
 
-Utilizei o **Wireshark** para monitorar minha própria rede enquanto fazia login em um site de testes. O objetivo não foi apenas capturar pacotes, mas entender onde os dados sensíveis ficam escondidos dentro da estrutura do protocolo TCP/IP.
+## Metodologia e Ferramentas
+* **Sniffer:** Wireshark (Análise de tráfego em tempo real).
+* **Endpoint Alvo:** `testphp.vulnweb.com` (Aplicação deliberadamente insegura para testes de penetração).
+* **Foco da Análise:** Inspeção da Camada 7 (Aplicação) para identificar payloads de autenticação.
 
-## 🛠️ O que eu usei
-* **Wireshark:** Para "escutar" a rede.
-* **Site Alvo:** `testphp.vulnweb.com` (Um site feito propositalmente para testes de segurança).
-* **Filtro:** `http.request.method == POST` (Para achar apenas o momento em que enviei o formulário de login).
+## Execução e Filtragem
+Durante a sessão de monitoramento, o maior desafio foi isolar o evento de login em meio ao ruído de rede (broadcasts, tráfego ARP e TCP secundário). 
 
-## 📸 A Prova do Crime
-Abaixo, o print mostra o momento exato em que capturei o pacote de login.
-Ao expandir a linha `HTML Form URL Encoded`, consegui ler o usuário e a senha sem nenhuma dificuldade:
+Para otimizar a análise, apliquei o seguinte filtro de exibição:
+```bash
+http.request.method == "POST"
+```
+Este filtro isolou especificamente as requisições de envio de formulários, onde as credenciais costumam ser transmitidas no corpo da mensagem.
+
+### Evidência de Interceptação
+Ao inspecionar o pacote capturado, os dados de autenticação foram identificados imediatamente na seção `HTML Form URL Encoded`. Como o protocolo HTTP não implementa TLS/SSL, os parâmetros de `uname` e `pass` trafegam em **texto claro (cleartext)**.
 
 ![Evidência do Wireshark](evidence.png)
 
-## 🔧 Desafios na Análise
-Capturar dados em uma rede ativa gera muito ruído (milhares de pacotes irrelevantes).
-
-* **O Problema:** Encontrar a credencial específica no meio de todo o tráfego de rede da máquina.
-* **A Solução:** Utilizei filtros de display avançados (`http.request.method == POST`) para isolar apenas os pacotes que continham envio de formulários, descartando todo o resto do tráfego TCP/ARP.
-
-## 🧠 O que aprendi
-1.  **Dados em Texto Claro:** Fiquei surpreso em ver que, sem o HTTPS, a senha trafega "pelada" na rede. Qualquer pessoa no mesmo Wi-Fi poderia ter lido isso.
-2.  **Análise de Pacotes:** Aprendi a navegar nas camadas do pacote (Frame, Ethernet, IP, TCP) até chegar no payload onde estão os dados do usuário.
-3.  **A importância do POST:** Entendi que, mesmo que a senha não apareça na URL lá em cima no navegador, ela está no "corpo" da mensagem (POST) e é fácil de achar com o filtro certo.
+## Insights Técnicos
+1. **Exposição de Payload:** A prática confirmou que, no HTTP, a segurança não existe mesmo que os dados não apareçam na URL (como no método GET). O payload do POST é facilmente reconstruído por qualquer analista com acesso ao segmento de rede.
+2. **Análise de Camadas:** A navegação pelas camadas do pacote permitiu visualizar o encapsulamento desde o Frame (L2) até o dado da aplicação (L7).
+3. **Mitigação:** O laboratório reforça a obrigatoriedade da implementação de HTTPS (TLS) para garantir a integridade e confidencialidade, impedindo ataques de *Man-in-the-Middle* (MitM) simples como este.
 
 ---
-*Lab realizado em ambiente controlado para fins de estudo.*
+*Laboratório focado em Network Security e Análise de Protocolos.*
